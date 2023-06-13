@@ -10,7 +10,8 @@ from PyQt5.QtWidgets import QGridLayout, QLabel, QWidget, QSlider, QPushButton
 width = 900
 height = 600
 cell_size = 15
-
+player_hp = ['3']
+score = 1200
 cells_in_row = width / cell_size
 cells_in_col = height / cell_size
 color = {0: 'lightblue', 1: 'khaki', 2: 'green', 3: 'red', 5: 'plum'}
@@ -169,19 +170,9 @@ class mainMenu(QtWidgets.QWidget):
         buttonRule.setFont(QFont('Comic Sans MS', 14))
         buttonRule.clicked.connect(self.switch_rule)
 
-        buttonSettings = QtWidgets.QPushButton("Настройки", self)
-        buttonSettings.setGeometry(150, 380, 600, 80)
-        buttonSettings.setStyleSheet('solid black; color: white; background: black;'
-                                     )
-        buttonSettings.setStyleSheet("QPushButton::hover"
-                                     "{"
-                                     "background-color : rgb(99, 171, 247);"
-                                     "}")
-        buttonSettings.setFont(QFont('Comic Sans MS', 14))
-        buttonSettings.clicked.connect(self.switch_settings)
 
         buttonExit = QtWidgets.QPushButton("Выйти", self)
-        buttonExit.setGeometry(150, 480, 600, 80)
+        buttonExit.setGeometry(150, 380, 600, 80)
         buttonExit.setStyleSheet('solid white; color: white; background: black;')
         buttonExit.setStyleSheet("QPushButton::hover"
                                  "{"
@@ -250,7 +241,7 @@ class Window(QWidget):
         self.grid_layout = QGridLayout(self)
         self.grid_layout.setVerticalSpacing(0)
         self.grid_layout.setHorizontalSpacing(0)
-        self.setFixedSize(900, 600)
+        self.setFixedSize(900, 660)
         for x in range(int(cells_in_col)):
             for y in range(int(cells_in_row)):
                 self.grid_layout.addWidget(self.create_cell(x, y), x, y)
@@ -266,16 +257,33 @@ class Window(QWidget):
         sidebar = []
 
         bar = QLabel(self)
-        bar.resize(600, 400)
-        bar.setStyleSheet('font-size: 30px; color: white; background: black')
-        bar.move(200, 600)
+        bar.resize(877, 600)
+        bar.setStyleSheet('font-size: 30px; color: white; background: rgb(99, 171, 247); border: 2px solid #000000')
+        bar.move(13, 600)
         sidebar.append(bar)
+
+        heart = QLabel(self)
+        heart.resize(50, 50)
+        heart.setStyleSheet('font-size: 30px; color: white; background-image: url("icons8-pixel-heart-48.png")')
+        heart.setAlignment(Qt.AlignJustify)
+        heart.setText(player_hp[0])
+        heart.move(830, 610)
+        sidebar.append(heart)
+
+        scoreL = QLabel(self)
+        scoreL.resize(200, 100)
+        scoreL.setStyleSheet('font-size: 35px; color: white;')
+        scoreL.setAlignment(Qt.AlignCenter)
+        scoreL.setText(f'Счёт: {score}')
+        scoreL.move(30, 585)
+        sidebar.append(scoreL)
         return sidebar
 
     def create_cell(self, x, y):
         cell_color = cell_dictionary[f'{x}_{y}'][2]
         self.cell = QLabel()
         self.cell.resize(cell_size, cell_size)
+        self.cell.setFixedSize(cell_size,cell_size)
         # self.cell.setText(str(cell_dictionary[f'{x}_{y}']))
         self.cell.setStyleSheet(f'background-color: {color[cell_color]};'
                                 'border: 0px solid #EEE;'
@@ -348,18 +356,17 @@ class Window(QWidget):
 
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
-        # print(f'строка и столбец при создании: {location[0]}, {location[1]}')
 
     def proverka(self):
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
 
-        # закраска под игроком
         if cell_dictionary[f'{location[0]}_{location[1]}'][2] == 0:
             cell_dictionary[f'{location[0]}_{location[1]}'][2] = 5
             self.grid_layout.addWidget(self.create_cell(location[0], location[1]), location[0], location[1])
             self.create_player(location[0], location[1])
-
+        if cell_dictionary[f'{location[0]}_{location[1]}'][2] == 0:
+            self.create_player(location[0], location[1])
     def Picovalka(self):
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
