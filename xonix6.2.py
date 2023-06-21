@@ -2,21 +2,23 @@ import random
 import sys
 
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QFont, QIcon
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
-from PyQt5.QtWidgets import QGridLayout, QLabel, QWidget, QSlider, QPushButton
+from PyQt5.QtWidgets import QGridLayout, QLabel, QWidget
 
 width = 900
 height = 600
 cell_size = 15
 player_hp = ['3']
-score = 1200
+scores = 0
+percent = 0
 cells_in_row = width / cell_size
 cells_in_col = height / cell_size
 color = {0: 'lightblue', 1: 'khaki', 2: 'green', 3: 'red', 5: 'plum'}
 countBot = 1
 volume = 15
+d = 0
+s = 1
 vector = None
 trajectory = []
 cell_dictionary = {}
@@ -26,53 +28,11 @@ for i in range(int(cells_in_col)):
     for j in range(int(cells_in_row)):
         if i == 0 or i == cells_in_col - 1 or j == 0 or j == cells_in_row - 1:
             c = 1
+            s += 1
         else:
             c = 0
+            d += 1
         cell_dictionary[f'{i}_{j}'] = [i, j, c]
-
-
-class RedSettings(QtWidgets.QWidget):
-    def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Настройки")
-        self.setStyleSheet('background: khaki;')
-        self.move(500, 150)
-        self.setFixedSize(900, 600)
-        self.player = QMediaPlayer()
-        buttonRule_Menu = QtWidgets.QPushButton("", self)
-        buttonRule_Menu.setGeometry(20, 20, 70, 60)
-        buttonRule_Menu.setIcon(QIcon('arrow.png'))
-        buttonRule_Menu.setStyleSheet('solid black; font-size: 25px; color: white;')
-        buttonRule_Menu.clicked.connect(self.switch_set_menu)
-
-    def media(self):
-        media_content = QMediaContent(QUrl.fromLocalFile("menu.wav"))
-
-        self.player.setMedia(media_content)
-
-        self.volume_slider = QSlider()
-        self.volume_slider.setOrientation(Qt.Horizontal)
-        self.volume_slider.setMinimum(0)
-        self.volume_slider.setMaximum(100)
-        self.volume_slider.setStyleSheet("QSlider::handle { width: 40px; }")
-        self.player.setVolume(volume)
-        self.volume_slider.setValue(volume)
-        self.volume_slider.setFixedWidth(900)
-        self.volume_slider.setFixedHeight(20)
-        self.volume_slider.valueChanged.connect(self.change_volume)
-
-        self.play_button = QPushButton("Воспроизвести")
-        self.play_button.clicked.connect(self.play_music)
-
-    def switch_set_menu(self):
-        RedSettings.hide()
-        mainMenu.show()
-
-    def play_music(self):
-        self.player.play()
-
-    def change_volume(self, volume):
-        self.player.setVolume(volume)
 
 
 class RulesOfNature(QtWidgets.QWidget):
@@ -170,7 +130,6 @@ class mainMenu(QtWidgets.QWidget):
         buttonRule.setFont(QFont('Comic Sans MS', 14))
         buttonRule.clicked.connect(self.switch_rule)
 
-
         buttonExit = QtWidgets.QPushButton("Выйти", self)
         buttonExit.setGeometry(150, 380, 600, 80)
         buttonExit.setStyleSheet('solid white; color: white; background: black;')
@@ -193,13 +152,6 @@ class mainMenu(QtWidgets.QWidget):
         RulesOfNature.move(mainMenu.x(), mainMenu.y())
 
         RulesOfNature.show()
-        self.hide()
-
-    def switch_settings(self):
-        Window.move(mainMenu.x(), mainMenu.y())
-        RedSettings.move(mainMenu.x(), mainMenu.y())
-
-        RedSettings.show()
         self.hide()
 
     def switch_exit(self):
@@ -238,6 +190,7 @@ class Window(QWidget):
         self.player = None
         self.cell = None
         self.bot = None
+        self.score = 0
         self.grid_layout = QGridLayout(self)
         self.grid_layout.setVerticalSpacing(0)
         self.grid_layout.setHorizontalSpacing(0)
@@ -253,29 +206,40 @@ class Window(QWidget):
         self.setGeometry(80, 80, width, height)
         self.setLayout(self.grid_layout)
 
+        self.timer_l = QTimer(self)
+        self.timer_l.timeout.connect(self.move_bots)
+        self.timer_l.start(200)
+
     def sidebar(self):
         sidebar = []
 
         bar = QLabel(self)
         bar.resize(877, 600)
         bar.setStyleSheet('font-size: 30px; color: white; background: rgb(99, 171, 247); border: 2px solid #000000')
-        bar.move(13, 600)
+        bar.move(13, 612)
         sidebar.append(bar)
 
         heart = QLabel(self)
-        heart.resize(50, 50)
-        heart.setStyleSheet('font-size: 30px; color: white; background-image: url("icons8-pixel-heart-48.png")')
-        heart.setAlignment(Qt.AlignJustify)
-        heart.setText(player_hp[0])
-        heart.move(830, 610)
+        heart.resize(130, 50)
+        heart.setStyleSheet('font-size: 30px; color: white;')
+        heart.setText(f'Жизни: {player_hp[0]}')
+        heart.move(750, 610)
         sidebar.append(heart)
+
+        perec = QLabel(self)
+        perec.resize(200, 100)
+        perec.setStyleSheet('font-size: 35px; color: white;')
+        perec.setAlignment(Qt.AlignCenter)
+        perec.setText(f'% {percent}')
+        perec.move(500, 585)
+        sidebar.append(perec)
 
         scoreL = QLabel(self)
         scoreL.resize(200, 100)
         scoreL.setStyleSheet('font-size: 35px; color: white;')
         scoreL.setAlignment(Qt.AlignCenter)
-        scoreL.setText(f'Счёт: {score}')
-        scoreL.move(30, 585)
+        scoreL.setText(f'Счёт {scores}')
+        scoreL.move(100, 585)
         sidebar.append(scoreL)
         return sidebar
 
@@ -283,15 +247,13 @@ class Window(QWidget):
         cell_color = cell_dictionary[f'{x}_{y}'][2]
         self.cell = QLabel()
         self.cell.resize(cell_size, cell_size)
-        self.cell.setFixedSize(cell_size,cell_size)
-        # self.cell.setText(str(cell_dictionary[f'{x}_{y}']))
+        self.cell.setFixedSize(cell_size, cell_size)
         self.cell.setStyleSheet(f'background-color: {color[cell_color]};'
                                 'border: 0px solid #EEE;'
                                 'padding: 0; margin: 0; ')
         return self.cell
 
     def create_bot(self):
-        bots = []
         for bot in range(countBot):
             i_bot = random.randrange(1, int(cells_in_col - 1))
             j_bot = random.randrange(1, int(cells_in_row - 1))
@@ -303,42 +265,48 @@ class Window(QWidget):
             self.bot = QLabel()
             self.bot.setStyleSheet(f'background-color: {color[3]}')
             self.grid_layout.addWidget(self.bot, i_bot, j_bot)
-            bots.append(bot)
-        return bots
 
     def move_bots(self):
 
         location_index = self.grid_layout.indexOf(self.bot)
         locationBot = self.grid_layout.getItemPosition(location_index)
         direction1 = random.choice(['left', 'right', 'up', 'down'])
-        print(direction1)
-        if direction1 == 'left':
-            moving_left = locationBot[1] - 1
-            if cell_dictionary[f'{locationBot[0]}_{locationBot[1] - 1}'][2] != 1:
-                self.grid_layout.addWidget(self.bot, locationBot[0], moving_left)
-            else:
-                direction1 = random.choice(['right', 'up', 'down'])
+        if cell_dictionary[f'{locationBot[0]}_{locationBot[1]}'][2] != 5:
+            if direction1 == 'left':
+                moving_left = locationBot[1] - 1
+                if cell_dictionary[f'{locationBot[0]}_{locationBot[1] - 1}'][2] != 1:
+                    self.grid_layout.addWidget(self.bot, locationBot[0], moving_left)
+                else:
+                    direction1 = random.choice(['right', 'up', 'down'])
 
-        if direction1 == 'right':
-            moving_right = locationBot[1] + 1
-            if cell_dictionary[f'{locationBot[0]}_{locationBot[1] + 1}'][2] != 1:
-                self.grid_layout.addWidget(self.bot, locationBot[0], moving_right)
-            else:
-                direction1 = random.choice(['left', 'up', 'down'])
+            if direction1 == 'right':
+                moving_right = locationBot[1] + 1
+                if cell_dictionary[f'{locationBot[0]}_{locationBot[1] + 1}'][2] != 1:
+                    self.grid_layout.addWidget(self.bot, locationBot[0], moving_right)
+                else:
+                    direction1 = random.choice(['left', 'up', 'down'])
 
-        if direction1 == 'up':
-            moving_up = locationBot[0] - 1
-            if cell_dictionary[f'{locationBot[0] - 1}_{locationBot[1]}'][2] != 1:
-                self.grid_layout.addWidget(self.bot, moving_up, locationBot[1])
-            else:
-                direction1 = random.choice(['left', 'right', 'down'])
+            if direction1 == 'up':
+                moving_up = locationBot[0] - 1
+                if cell_dictionary[f'{locationBot[0] - 1}_{locationBot[1]}'][2] != 1:
+                    self.grid_layout.addWidget(self.bot, moving_up, locationBot[1])
+                else:
+                    direction1 = random.choice(['left', 'right', 'down'])
 
-        if direction1 == 'down':
-            moving_down = locationBot[0] + 1
-            if cell_dictionary[f'{locationBot[0] + 1}_{locationBot[1]}'][2] != 1:
-                self.grid_layout.addWidget(self.bot, moving_down, locationBot[1])
-            else:
-                direction1 = random.choice(['left', 'right', 'up'])
+            if direction1 == 'down':
+                moving_down = locationBot[0] + 1
+                if cell_dictionary[f'{locationBot[0] + 1}_{locationBot[1]}'][2] != 1:
+                    self.grid_layout.addWidget(self.bot, moving_down, locationBot[1])
+                else:
+                    direction1 = random.choice(['left', 'right', 'up'])
+        else:
+            location_index = self.grid_layout.indexOf(self.player)
+            location = self.grid_layout.getItemPosition(location_index)
+            player_hp[0] = str(int(player_hp[0]) - 1)
+            self.sidebar[1].setText(f'Жизни: {player_hp[0]}')
+            self.grid_layout.addWidget(self.create_cell(location[0], location[1]), location[0], location[1])
+            self.create_player(1, 0)
+            self.create_bot()
 
     def start_coordinates(self):
         i_player = random.randrange(0, int(cells_in_col))
@@ -357,6 +325,30 @@ class Window(QWidget):
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
 
+    def win_or_lose(self):
+        k = 0
+        r = 0
+        for i in range(int(cells_in_col)):
+            for j in range(int(cells_in_row)):
+                if cell_dictionary[f'{i}_{j}'][2] == 0:
+                    k += 1
+                if i == 0 or i == cells_in_col - 1 or j == 0 or j == cells_in_row - 1:
+                    с = 0
+                elif cell_dictionary[f'{i}_{j}'][2] == 1:
+                    r +=1
+
+        stradanie = int(d - d * 0.7)
+        percent = str(int((r / stradanie) * 100))
+        self.sidebar[2].setText(f'% {percent}')
+        print(d, '  ', k, '  ', stradanie)
+        print(percent)
+        if k <= stradanie:
+            Window.close()
+            mainMenu.show()
+        if int(player_hp[0]) < 0:
+            Window.close()
+            mainMenu.show()
+
     def proverka(self):
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
@@ -365,21 +357,16 @@ class Window(QWidget):
             cell_dictionary[f'{location[0]}_{location[1]}'][2] = 5
             self.grid_layout.addWidget(self.create_cell(location[0], location[1]), location[0], location[1])
             self.create_player(location[0], location[1])
-        if cell_dictionary[f'{location[0]}_{location[1]}'][2] == 0:
-            self.create_player(location[0], location[1])
+        # if cell_dictionary[f'{location[0]}_{location[1]}'][2] == 1:
+        #     self.create_player(location[0], location[1])
+        self.win_or_lose()
+
     def Picovalka(self):
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
 
-        global trajectory
+        global trajectory, scores
         trajectory.append([location[0], location[1]])
-        print(f'траектория: {trajectory}')
-
-        print(vector)
-
-        print(f'first_point: {trajectory[0]}')
-
-        print(f'текущее положение: {location[0]}, {location[1]}')
 
         if trajectory != []:
             if cell_dictionary[f'{location[0]}_{location[1]}'][2] == 1:
@@ -389,36 +376,36 @@ class Window(QWidget):
                 last_point_row = trajectory[-1][0]
                 for row in range(first_point_row, last_point_row + 1):
                     for col in range(first_point_col, last_point_col + 1):
+                        scores += 1
+                        score = scores * countBot
+                        self.sidebar[3].setText(f'Счёт {score}')
                         if cell_dictionary[f'{row}_{col}'][2] == 0 or cell_dictionary[f'{row}_{col}'][2] == 5:
                             cell_dictionary[f'{row}_{col}'][2] = 1
                             self.grid_layout.addWidget(self.create_cell(row, col), row, col)
                 trajectory = []
+                self.win_or_lose()
+
     def move_player(self, direction):
         global vector
         vector = direction
         location_index = self.grid_layout.indexOf(self.player)
         location = self.grid_layout.getItemPosition(location_index)
-
         if direction == 'left':
             moving_left = location[1] - 1
             if moving_left >= 0:
                 self.grid_layout.addWidget(self.player, location[0], moving_left)
-
         if direction == 'right':
             moving_right = location[1] + 1
             if moving_right < int(cells_in_row):
                 self.grid_layout.addWidget(self.player, location[0], moving_right)
-
         if direction == 'up':
             moving_up = location[0] - 1
             if moving_up >= 0:
                 self.grid_layout.addWidget(self.player, moving_up, location[1])
-
         if direction == 'down':
             moving_down = location[0] + 1
             if moving_down < int(cells_in_col):
                 self.grid_layout.addWidget(self.player, moving_down, location[1])
-
         self.proverka()
         self.Picovalka()
 
@@ -435,7 +422,11 @@ class Window(QWidget):
         if event.key() == Qt.Key_Escape:
             self.close()
         if event.key() == Qt.Key_Insert:
-            print(cell_dictionary)
+            location_index = self.grid_layout.indexOf(self.player)
+            location = self.grid_layout.getItemPosition(location_index)
+            self.grid_layout.addWidget(self.create_cell(location[0], location[1]), location[0], location[1])
+            self.create_player(1, 0)
+
         if event.key() == Qt.Key_Escape:
             Window.close()
             mainMenu.show()
@@ -446,6 +437,5 @@ if __name__ == '__main__':
     Window = Window()
     mainMenu = mainMenu()
     RulesOfNature = RulesOfNature()
-    RedSettings = RedSettings()
     mainMenu.show()
     app.exec_()
